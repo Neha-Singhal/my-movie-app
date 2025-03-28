@@ -1,4 +1,5 @@
 import os
+import statistics
 import requests
 import random
 from dotenv import load_dotenv
@@ -69,46 +70,55 @@ class MovieApp:
 
 
     def _command_delete_movies(self):
-        """Delete a movie from storage."""
+        """Delete a movie from storage only if it exists."""
         title = input("Enter the title of the movie to delete: ")
-        self._storage.delete_movie(title)
-        print(f"Movie '{title}' deleted successfully!")
+        movies = self._storage.list_movies()
+
+        if title in movies:
+            self._storage.delete_movie(title)
+            print(f"Movie '{title}' deleted successfully!")
+        else:
+            print(f"Movie '{title}' not found. No changes made.")
 
 
     def _command_update_movie(self):
-        """Update a movie rating."""
+        """Update a movie rating only if the movie exists."""
         title = input("Enter the title of the movie to update: ")
-        rating = input("Enter new rating: ")
-        self._storage.update_movie(title, rating)
-        print(f"Movie '{title}' updated successfully!")
+        movies = self._storage.list_movies()
 
+        if title in movies:
+            rating = input("Enter new rating: ")
+            self._storage.update_movie(title, rating)
+            print(f"Movie '{title}' updated successfully!")
+        else:
+            print(f"Movie '{title}' not found. Update failed.")
+
+    import statistics
 
     def _command_movie_stats(self):
-        """Displays statistic about the movies."""
+        """Displays statistics including median rating and all best/worst movies."""
         movies = self._storage.list_movies()
-        if movies:
-            total_movies = len(movies)
-            # Convert ratings to float and handle missing or invalid ratings
-            ratings = []
-            for movie in movies.values():
-                try:
-                    rating = float(movie.get('rating', 0))
-                    ratings.append(rating)
-                except (ValueError, TypeError):
-                    ratings.append(0)
-            # Calculate average rating
-            avg_rating = sum(ratings) / total_movies if total_movies > 0 else 0
-
-            # Find the highest and lowest rated movies
-            highest_rated = max(movies.items(), key=lambda x: float(x[1].get('rating', 0)))
-            lowest_rated = min(movies.items(), key=lambda x: float(x[1].get('rating', 0)))
-
-            print(f"\nTotal movies: {total_movies}")
-            print(f"Average rating: {avg_rating:.2f}")
-            print(f"Highest rated movie: {highest_rated[0]} (Rating: {highest_rated[1].get('rating', 'N/A')})")
-            print(f"Lowest rated movie: {lowest_rated[0]} (Rating: {lowest_rated[1].get('rating', 'N/A')})")
-        else:
+        if not movies:
             print("\nNo movies found.")
+            return
+
+        total_movies = len(movies)
+        ratings = [float(movie.get('rating', 0)) for movie in movies.values()]
+        avg_rating = sum(ratings) / total_movies if ratings else 0
+        median_rating = statistics.median(ratings)
+
+        # Find all highest and lowest rated movies
+        max_rating = max(ratings)
+        min_rating = min(ratings)
+
+        highest_rated_movies = [title for title, movie in movies.items() if float(movie.get('rating', 0)) == max_rating]
+        lowest_rated_movies = [title for title, movie in movies.items() if float(movie.get('rating', 0)) == min_rating]
+
+        print(f"\nTotal movies: {total_movies}")
+        print(f"Average rating: {avg_rating:.2f}")
+        print(f"Median rating: {median_rating:.2f}")
+        print(f"Highest rated movies: {', '.join(highest_rated_movies)} (Rating: {max_rating})")
+        print(f"Lowest rated movies: {', '.join(lowest_rated_movies)} (Rating: {min_rating})")
 
 
     def _command_random_movie(self):
@@ -125,20 +135,20 @@ class MovieApp:
         else:
             print("\nNo movies found.")
 
-
     def _command_search_movie(self):
-        """
-        Searches for a movie by title and displays its details.
-        """
-        title = input("Enter movie title to search: ")
+        """Searches for movies by partial title and displays matching results."""
+        search_query = input("Enter movie title to search: ").lower()
         movies = self._storage.list_movies()
-        if title in movies:
-            movie = movies[title]
-            print(f"\nMovie Found: {title} ({movie['year']})")
-            print(f"Rating: {movie['rating']}")
-            print(f"Poster: {movie['poster']}")
+
+        matching_movies = {title: details for title, details in movies.items() if search_query in title.lower()}
+
+        if matching_movies:
+            print("\nMatching Movies:")
+            for title, details in matching_movies.items():
+                print(f"{title} ({details['year']}): Rating {details['rating']}")
         else:
-            print(f"\nMovie '{title}' not found.")
+            print(f"\nNo movies found matching '{search_query}'.")
+
 
     def _command_movies_sorted_by_rating(self):
         """
